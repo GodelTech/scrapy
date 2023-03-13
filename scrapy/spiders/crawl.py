@@ -6,12 +6,14 @@ See documentation in docs/topics/spiders.rst
 """
 
 import copy
+import warnings
 from typing import AsyncIterable, Awaitable, Sequence
 
 from scrapy.http import HtmlResponse, Request, Response
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import Spider
 from scrapy.utils.asyncgen import collect_asyncgen
+from scrapy.utils.deprecate import method_is_overridden
 from scrapy.utils.spider import iterate_spider_output
 
 
@@ -113,7 +115,33 @@ class CrawlSpider(Spider):
         rule = self._rules[failure.request.meta["rule"]]
         return self._handle_failure(failure, rule.errback)
 
-    async def _parse_response(self, response, callback, cb_kwargs, follow=True):
+    def parse_public(self, response, callback, cb_kwargs, follow=True):
+        """Public method exposing `_parse_response()`"""
+
+        return self._parse_response(
+            response=response,
+            callback=callback,
+            cb_kwargs=cb_kwargs,
+            warn=False,
+            follow=follow,
+        )
+
+    async def _parse_response(
+        self, response, callback, cb_kwargs, warn=True, follow=True
+    ):
+        cls = self.__class__
+        if warn and method_is_overridden(cls, CrawlSpider, "_parse_response"):
+            warnings.warn(
+                "CrawlSpider._parse_response is deprecated; "
+                "please, override CrawlSpider.parse_public "
+                "instead (see %s.%s)." % (cls.__module__, cls.__name__)
+            )
+        elif warn:
+            warnings.warn(
+                "CrawlSpider._parse_response is deprecated; "
+                "please, use CrawlSpider.parse_public instead."
+            )
+
         if callback:
             cb_res = callback(response, **cb_kwargs) or ()
             if isinstance(cb_res, AsyncIterable):
